@@ -10,6 +10,7 @@ const corsOptions =require('./config/corsOptions')
 const connectDB = require('./config/dbConn')
 const mongoose = require('mongoose')
 const {logEvents} = require ('./middleware/logger')
+const userRoutes = require('./routes/userRoutes')
 const PORT = process.env.PORT || 3500
 
 console.log(process.env.NODE_ENV)
@@ -27,6 +28,8 @@ app.use(cookieParser())
 app.use('/',express .static(path.join(__dirname,'public')))
 
 app.use('/',require('./routes/root'))
+app.use('/api/users', userRoutes);
+
 
  app.use((req,res)=>{
     res.status(404)

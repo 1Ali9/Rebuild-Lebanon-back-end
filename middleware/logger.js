@@ -19,7 +19,7 @@ const logEvents = async(message, logFileName)=>{
 }
 const logger=(req,res,next)=>{
     logEvents(`${req.method}\t${req.url}\t${req.header.origin}`,'reqlog.log')
-    console.log(`${req.methode} ${req.path}`)
+    console.log(`${req.method} ${req.path}`)
     next()
 }
 module.exports = {logEvents,logger}
