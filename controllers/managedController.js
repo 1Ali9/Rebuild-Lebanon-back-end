@@ -1,7 +1,7 @@
 const ManagedRelationship = require('../models/ManagedRelationship');
 const User = require('../models/user');
 
-exports.addClient = async (req, res) => {
+const addClient = async (req, res) => {
   try {
     if (req.user.role !== 'specialist') {
       return res.status(403).json({ message: 'Only specialists can add clients' });
@@ -30,7 +30,7 @@ exports.addClient = async (req, res) => {
   }
 };
 
-exports.removeClient = async (req, res) => {
+const removeClient = async (req, res) => {
   try {
     if (req.user.role !== 'specialist') {
       return res.status(403).json({ message: 'Only specialists can remove clients' });
@@ -49,7 +49,7 @@ exports.removeClient = async (req, res) => {
   }
 };
 
-exports.updateClientStatus = async (req, res) => {
+const updateClientStatus = async (req, res) => {
   try {
     if (req.user.role !== 'specialist') {
       return res.status(403).json({ message: 'Only specialists can update client status' });
@@ -71,7 +71,7 @@ exports.updateClientStatus = async (req, res) => {
   }
 };
 
-exports.getManagedClients = async (req, res) => {
+const getManagedClients = async (req, res) => {
   try {
     if (req.user.role !== 'specialist') {
       return res.status(403).json({ message: 'Only specialists can view managed clients' });
@@ -84,7 +84,7 @@ exports.getManagedClients = async (req, res) => {
   }
 };
 
-exports.addSpecialist = async (req, res) => {
+const addSpecialist = async (req, res) => {
   try {
     if (req.user.role !== 'client') {
       return res.status(403).json({ message: 'Only clients can add specialists' });
@@ -113,7 +113,7 @@ exports.addSpecialist = async (req, res) => {
   }
 };
 
-exports.removeSpecialist = async (req, res) => {
+const removeSpecialist = async (req, res) => {
   try {
     if (req.user.role !== 'client') {
       return res.status(403).json({ message: 'Only clients can remove specialists' });
@@ -132,7 +132,7 @@ exports.removeSpecialist = async (req, res) => {
   }
 };
 
-exports.updateSpecialistStatus = async (req, res) => {
+const updateSpecialistStatus = async (req, res) => {
   try {
     if (req.user.role !== 'client') {
       return res.status(403).json({ message: 'Only clients can update specialist status' });
@@ -154,7 +154,7 @@ exports.updateSpecialistStatus = async (req, res) => {
   }
 };
 
-exports.getManagedSpecialists = async (req, res) => {
+const getManagedSpecialists = async (req, res) => {
   try {
     if (req.user.role !== 'client') {
       return res.status(403).json({ message: 'Only clients can view managed specialists' });
@@ -165,4 +165,15 @@ exports.getManagedSpecialists = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch managed specialists' });
   }
+};
+
+module.exports = {
+  addClient,
+  removeClient,
+  updateClientStatus,
+  getManagedClients,
+  addSpecialist,
+  removeSpecialist,
+  updateSpecialistStatus,
+  getManagedSpecialists,
 };
