@@ -7,7 +7,7 @@ const getConversations = async (req, res) => {
     const conversations = await Conversation.find({ participants: req.user._id })
       .populate('participants', 'fullname role')
       .populate('lastMessage');
-    res.json(conversations);
+    res.json({ conversations });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch conversations' });
   }
@@ -26,7 +26,7 @@ const getMessages = async (req, res) => {
     const messages = await Message.find({ conversationId })
       .populate('sender', 'fullname')
       .populate('recipient', 'fullname');
-    res.json(messages);
+    res.json({ messages });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch messages' });
   }
@@ -53,7 +53,7 @@ const createConversation = async (req, res) => {
     });
     await conversation.save();
     await conversation.populate('participants', 'fullname role');
-    res.status(201).json(conversation);
+    res.status(201).json({ conversationId: conversation._id, messages: [] });
   } catch (error) {
     res.status(400).json({ message: 'Failed to create conversation' });
   }
@@ -83,7 +83,7 @@ const sendMessage = async (req, res) => {
     await conversation.save();
     await newMessage.populate('sender', 'fullname');
     await newMessage.populate('recipient', 'fullname');
-    res.status(201).json(newMessage);
+    res.status(201).json({ message: newMessage });
   } catch (error) {
     res.status(400).json({ message: 'Failed to send message' });
   }
