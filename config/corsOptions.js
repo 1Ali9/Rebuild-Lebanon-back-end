@@ -1,16 +1,26 @@
-
-const allowedOrigins =require('./allowedOrigins')
+const allowedOrigins = require('./allowedOrigins');
 
 const corsOptions = {
-    origin: (origin,Callback)=>{
-        if(allowedOrigins.indexOf(origin) !== -1 || !origin){
-            Callback(null,true)
-        }else{
-            Callback(new Error('Not allowed by CORS'))
-        }
-    },
-    Credentials:true,
-    optionsSuccessStatus: 200
-}
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  // Add these critical headers
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+};
 
-module.exports = corsOptions
+module.exports = corsOptions;
