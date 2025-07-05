@@ -44,19 +44,39 @@ const getSpecialists = async (req, res) => {
 
 const getClients = async (req, res) => {
   try {
-    const { governorate, district, specialty } = req.query;
+    const { governorate, district, specialty, needsMySpecialty } = req.query;
     const query = { role: 'client' };
+    
+    // Location filters
     if (governorate) query.governorate = governorate;
     if (district) query.district = district;
-    if (specialty) query['neededSpecialists.name'] = specialty;
+    
+    // Specialty filter
+    if (needsMySpecialty === 'true' && specialty) {
+      query['neededSpecialists.name'] = specialty;
+      query['neededSpecialists.isNeeded'] = true;
+    }
 
-    const clients = await User.find(query).select('-password');
-    res.json(clients);
+    const clients = await User.find(query)
+      .select('-password -__v')
+      .lean();
+
+    // Standardize response structure
+    res.status(200).json({
+      success: true,
+      data: { clients }, // Wrap in data object to match frontend expectation
+      count: clients.length
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch clients' });
+    console.error('Error fetching clients:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch clients',
+      error: error.message
+    });
   }
 };
-
 const updateNeededSpecialists = async (req, res) => {
   try {
     if (req.user.role !== 'client') {
