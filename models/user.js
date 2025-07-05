@@ -31,7 +31,7 @@ const neededSpecialistSchema = new mongoose.Schema({
   },
   isNeeded: {
     type: Boolean,
-    default: true, // Indicates if client needs this specialty
+    default: true,
   },
 });
 
@@ -52,7 +52,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    unique: true, // Ensure unique usernames
+    unique: true,
   },
   password: {
     type: String,
@@ -65,13 +65,13 @@ const userSchema = new mongoose.Schema({
   },
   district: {
     type: String,
-    required: function () {
+    required: function() {
       return this.role === 'client' || this.role === 'specialist';
     },
     trim: true,
     validate: {
-      validator: function (value) {
-        if (this.role === 'admin') return true; // No validation for admins
+      validator: function(value) {
+        if (this.role === 'admin') return true;
         const governorate = this.governorate;
         return districtByGovernorate[governorate]?.includes(value);
       },
@@ -80,7 +80,7 @@ const userSchema = new mongoose.Schema({
   },
   governorate: {
     type: String,
-    required: function () {
+    required: function() {
       return this.role === 'client' || this.role === 'specialist';
     },
     trim: true,
@@ -91,32 +91,57 @@ const userSchema = new mongoose.Schema({
   },
   neededSpecialists: {
     type: [neededSpecialistSchema],
-    required: function () {
+    required: function() {
       return this.role === 'client';
     },
-    default: [], // Only applies to clients
+    validate: {
+      validator: function(value) {
+        return this.role === 'client';
+      },
+      message: 'Only clients can have neededSpecialists'
+    },
+    default: undefined
   },
   specialty: {
     type: String,
-    required: function () {
+    required: function() {
       return this.role === 'specialist';
+    },
+    validate: {
+      validator: function(value) {
+        return this.role === 'specialist';
+      },
+      message: 'Only specialists can have a specialty'
     },
     enum: {
       values: specialties,
       message: '{VALUE} is not a valid specialty',
     },
-    trim: true, // Only applies to specialists
+    trim: true
   },
   isAvailable: {
     type: Boolean,
-    default: true, // Only applies to specialists
-    required: function () {
+    required: function() {
       return this.role === 'specialist';
     },
-  },
+    validate: {
+      validator: function(value) {
+        return this.role === 'specialist';
+      },
+      message: 'Only specialists can have availability status'
+    },
+    default: false
+  }
 }, {
   timestamps: true,
+  // Strict validation during updates
+  strict: 'throw',
+  // Remove empty objects/arrays
+  minimize: true
 });
 
+
+
 const User = mongoose.model('User', userSchema);
+
 module.exports = User;
