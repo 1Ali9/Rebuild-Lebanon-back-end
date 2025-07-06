@@ -29,16 +29,35 @@ const createUser = async (req, res) => {
 
 const getSpecialists = async (req, res) => {
   try {
-    const { governorate, district, specialty } = req.query;
-    const query = { role: 'specialist', isAvailable: true };
+    const { governorate, district, specialty, isAvailable } = req.query;
+    const query = { role: 'specialist' };
+    
+    // Apply filters
     if (governorate) query.governorate = governorate;
     if (district) query.district = district;
     if (specialty) query.specialty = specialty;
+    if (isAvailable) query.isAvailable = isAvailable === 'true';
 
-    const specialists = await User.find(query).select('-password');
-    res.json(specialists);
+    const specialists = await User.find(query)
+      .select('-password -__v')
+      .lean();
+
+    // Standardize response structure to match frontend expectation
+    res.status(200).json({
+      success: true,
+      data: {
+        specialists // Wrap in data object
+      },
+      count: specialists.length
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch specialists' });
+    console.error('Error fetching specialists:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch specialists',
+      error: error.message
+    });
   }
 };
 
