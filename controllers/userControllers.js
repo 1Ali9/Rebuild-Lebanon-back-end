@@ -101,15 +101,58 @@ const updateNeededSpecialists = async (req, res) => {
     if (req.user.role !== 'client') {
       return res.status(403).json({ message: 'Only clients can update needed specialists' });
     }
-    const { specialists } = req.body;
+
+    // Validate input
+    const { neededSpecialists } = req.body;
+    
+    if (!Array.isArray(neededSpecialists)) {
+      return res.status(400).json({ message: 'neededSpecialists must be an array' });
+    }
+
+    // Validate each specialist entry
+    const validSpecialties = [
+      'Civil Engineer', 'Architect', 'Mason', 'Blacksmith', 
+      'Glass Specialist', 'Plumber', 'Painter', 'Aluminum Frame Specialist',
+      'Carpenter', 'Tiler', 'Waterproofing Specialist', 'Electrician',
+      'Stone Cladding Specialist', 'HVAC Technician'
+    ];
+
+    for (const spec of neededSpecialists) {
+      if (!validSpecialties.includes(spec.name)) {
+        return res.status(400).json({ 
+          message: `Invalid specialty: ${spec.name}` 
+        });
+      }
+      if (typeof spec.isNeeded !== 'boolean') {
+        return res.status(400).json({ 
+          message: `isNeeded must be boolean for ${spec.name}` 
+        });
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { neededSpecialists: specialists },
-      { new: true, runValidators: true }
-    ).select('-password');
-    res.json(user);
+      { neededSpecialists },
+      { 
+        new: true, 
+        runValidators: true,
+        context: 'query' // Ensures schema validators run
+      }
+    ).select('-password -__v');
+
+    res.status(200).json({
+      success: true,
+      data: user,
+      message: 'Specialists updated successfully'
+    });
+
   } catch (error) {
-    res.status(400).json({ message: 'Failed to update needed specialists' });
+    console.error('Update error:', error);
+    res.status(400).json({ 
+      success: false,
+      message: 'Failed to update needed specialists',
+      error: error.message 
+    });
   }
 };
 
