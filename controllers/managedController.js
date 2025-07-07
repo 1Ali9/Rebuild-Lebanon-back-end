@@ -1,5 +1,6 @@
 const ManagedRelationship = require('../models/ManagedRelationship');
 const User = require('../models/user');
+const mongoose = require('mongoose');
 
 const addSpecialist = async (req, res) => {
   try {
@@ -31,29 +32,142 @@ const addSpecialist = async (req, res) => {
 
 const addClient = async (req, res) => {
   try {
-    const { clientName } = req.body;
-    const client = await User.findOne({ fullname: clientName, role: 'client' });
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
+    // 1. Debug incoming request
+    console.log('\n[DEBUG] ========== START ADD CLIENT REQUEST ==========');
+    console.log('[DEBUG] Headers:', req.headers);
+    console.log('[DEBUG] Request Body:', req.body);
+    console.log('[DEBUG] Authenticated User:', req.user);
+
+    // 2. Validate request body
+    if (!req.body.clientId) {
+      console.error('[VALIDATION] Missing clientId');
+      return res.status(400).json({
+        success: false,
+        message: "clientId is required in request body",
+        received: req.body
+      });
     }
+
+    const clientId = String(req.body.clientId).trim();
+    console.log('[DEBUG] Processing clientId:', clientId);
+
+    // 3. Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(clientId)) {
+      console.error('[VALIDATION] Invalid clientId format');
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Client ID format",
+        receivedId: clientId,
+        expectedFormat: "24-character hex string",
+        example: "507f1f77bcf86cd799439011"
+      });
+    }
+
+    // 4. Verify client exists
+    const client = await User.findOne({
+      _id: clientId,
+      role: 'client'
+    }).select('fullname governorate district neededSpecialists').lean();
+
+    if (!client) {
+      console.error('[VALIDATION] Client not found');
+      return res.status(404).json({
+        success: false,
+        message: "Client not found or invalid role"
+      });
+    }
+
+    // 5. Check for existing relationship
     const existingRelationship = await ManagedRelationship.findOne({
       specialist: req.user._id,
-      client: client._id,
+      client: clientId
     });
+
     if (existingRelationship) {
-      return res.status(400).json({ message: 'Client already added' });
+      console.error('[VALIDATION] Relationship already exists');
+      return res.status(409).json({
+        success: false,
+        message: "Client already in your managed list",
+        existingRelationship: existingRelationship._id
+      });
     }
+
+    // 6. Create new relationship
     const relationship = new ManagedRelationship({
       specialist: req.user._id,
-      client: client._id,
+      client: clientId,
       isDone: false,
-      dateAdded: new Date(),
+      dateAdded: new Date()
     });
-    await relationship.save();
-    await relationship.populate('client', 'fullname governorate district');
-    res.status(201).json({ client: relationship.client });
+
+    console.log('[DEBUG] New relationship object:', relationship);
+
+    // 7. Validate before saving
+    try {
+      await relationship.validate();
+      console.log('[DEBUG] Relationship validation passed');
+    } catch (validationError) {
+      console.error('[VALIDATION ERROR]', validationError.errors);
+      return res.status(422).json({
+        success: false,
+        message: "Validation failed",
+        errors: validationError.errors
+      });
+    }
+
+    // 8. Save to database
+    const savedRelationship = await relationship.save();
+    console.log('[DEBUG] Relationship saved successfully:', savedRelationship._id);
+
+    // 9. Return success response
+    return res.status(201).json({
+      success: true,
+      client: {
+        ...client,
+        isDone: false,
+        dateAdded: savedRelationship.dateAdded,
+        relationshipId: savedRelationship._id
+      }
+    });
+
   } catch (error) {
-    res.status(400).json({ message: 'Failed to add client' });
+    // Enhanced error logging
+    console.error('\n[ERROR] ======= ADD CLIENT FAILURE =======');
+    console.error('Error Name:', error.name);
+    console.error('Error Message:', error.message);
+    console.error('Error Code:', error.code); // MongoDB error code
+    console.error('Stack Trace:', error.stack);
+    
+    if (error.name === 'MongoServerError') {
+      console.error('MongoDB Details:', {
+        code: error.code,
+        keyPattern: error.keyPattern,
+        keyValue: error.keyValue
+      });
+    }
+
+    if (error.errors) {
+      console.error('Validation Errors:', error.errors);
+    }
+
+    // User-friendly error response
+    const errorResponse = {
+      success: false,
+      message: "Internal server error",
+      error: error.name
+    };
+
+    // Only include sensitive info in development
+    if (process.env.NODE_ENV === 'development') {
+      errorResponse.details = {
+        message: error.message,
+        stack: error.stack
+      };
+    }
+
+    return res.status(500).json(errorResponse);
+  } finally {
+    console.log('[DEBUG] ========== END ADD CLIENT PROCESS ==========\n');
   }
 };
 
@@ -81,19 +195,27 @@ const getManagedSpecialists = async (req, res) => {
 const getManagedClients = async (req, res) => {
   try {
     const relationships = await ManagedRelationship.find({ specialist: req.user._id })
-      .populate('client', 'fullname governorate district')
-      .select('isDone dateAdded client');
-    const clients = relationships.map((rel) => ({
+      .populate('client', 'fullname governorate district neededSpecialists');
+
+    const clients = relationships.map(rel => ({
       _id: rel.client._id,
       fullname: rel.client.fullname,
       governorate: rel.client.governorate,
       district: rel.client.district,
+      neededSpecialists: rel.client.neededSpecialists,
       isDone: rel.isDone,
       dateAdded: rel.dateAdded,
+      relationshipId: rel._id  // <-- Add this line
     }));
+
     res.json({ clients });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch managed clients' });
+    console.error('Error fetching managed clients:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch managed clients',
+      error: error.message 
+    });
   }
 };
 
@@ -115,24 +237,73 @@ const updateSpecialistStatus = async (req, res) => {
   }
 };
 
+// managedController.js
 const updateClientStatus = async (req, res) => {
   try {
-    const { clientId, isDone } = req.body;
-    const relationship = await ManagedRelationship.findOne({
-      specialist: req.user._id,
-      client: clientId,
+    console.log("\n[DEBUG] Received update request:", {
+      params: req.params,
+      body: req.body,
+      user: req.user._id,
+      timestamp: new Date(),
     });
-    if (!relationship) {
-      return res.status(404).json({ message: 'Relationship not found' });
+
+    const { isDone } = req.body;
+    const { relationshipId } = req.params;
+
+    // Log the raw relationshipId for debugging
+    console.log("[DEBUG] Raw relationshipId:", relationshipId);
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(relationshipId)) {
+      console.error("[ERROR] Invalid relationshipId:", relationshipId);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid relationship ID format",
+        receivedId: relationshipId,
+      });
     }
-    relationship.isDone = isDone;
-    await relationship.save();
-    res.json({ message: 'Client status updated' });
+
+    console.log("[DEBUG] Attempting update with:", {
+      relationshipId,
+      isDone,
+      specialist: req.user._id,
+    });
+
+    const result = await ManagedRelationship.updateOne(
+      {
+        _id: relationshipId,
+        specialist: req.user._id,
+      },
+      { $set: { isDone } }
+    );
+
+    console.log("[DEBUG] MongoDB update result:", result);
+
+    if (result.matchedCount === 0) {
+      console.error("[ERROR] No document matched the query");
+      return res.status(404).json({
+        success: false,
+        message: "Relationship not found or not owned by specialist",
+      });
+    }
+
+    res.json({
+      success: true,
+      updated: result.modifiedCount === 1,
+    });
   } catch (error) {
-    res.status(400).json({ message: 'Failed to update client status' });
+    console.error("[ERROR] Update failed:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update status",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
-
 const removeSpecialist = async (req, res) => {
   try {
     const { specialistId } = req.params;

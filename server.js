@@ -23,9 +23,10 @@ app.use((req, res, next) => {
 });
 // Middleware
 app.use(logger);
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors(corsOptions));
+
 app.use('/', express.static(path.join(__dirname, 'public')));
 
 // Routes
