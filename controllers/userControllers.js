@@ -70,21 +70,33 @@ const getClients = async (req, res) => {
     if (governorate) query.governorate = governorate;
     if (district) query.district = district;
     
-    // Specialty filter
+    // Specialty filter (FIXED)
     if (needsMySpecialty === 'true' && specialty) {
-      query['neededSpecialists.name'] = specialty;
-      query['neededSpecialists.isNeeded'] = true;
+      query.neededSpecialists = {
+        $elemMatch: {
+          name: specialty,
+          isNeeded: true
+        }
+      };
     }
 
     const clients = await User.find(query)
       .select('-password -__v')
       .lean();
 
-    // Standardize response structure
+    // Filter clients in case some entries don't match (additional safety)
+    const filteredClients = needsMySpecialty === 'true' && specialty
+      ? clients.filter(client => 
+          client.neededSpecialists?.some(
+            spec => spec.name === specialty && spec.isNeeded
+          )
+        )
+      : clients;
+
     res.status(200).json({
       success: true,
-      data: { clients }, // Wrap in data object to match frontend expectation
-      count: clients.length
+      data: { clients: filteredClients },
+      count: filteredClients.length
     });
 
   } catch (error) {
