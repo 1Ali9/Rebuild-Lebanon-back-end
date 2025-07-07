@@ -17,7 +17,16 @@ router.get("/", userControllers.getUsers);
 router.post("/", userControllers.createUser);
 router.get('/specialists', authMiddleware, userControllers.getSpecialists);
 router.get('/clients', authMiddleware, userControllers.getClients);
-router.patch('/needed-specialists', authMiddleware, userControllers.updateNeededSpecialists); // Changed to PATCH
+router.patch('/needed-specialists', 
+  authMiddleware,
+  (req, res, next) => {
+    // Clean the request body before it reaches the controller
+    if (req.body.data?.isAvailable) delete req.body.data.isAvailable;
+    if (req.body.isAvailable) delete req.body.isAvailable;
+    next();
+  },
+  userControllers.updateNeededSpecialists
+);
 router.put('/availability', authMiddleware, userControllers.updateAvailability);
 
 module.exports = router;
