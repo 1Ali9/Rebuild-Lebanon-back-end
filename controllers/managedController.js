@@ -291,19 +291,108 @@ const getManagedClients = async (req, res) => {
 
 const updateSpecialistStatus = async (req, res) => {
   try {
-    const { specialistId, isDone } = req.body;
-    const relationship = await ManagedRelationship.findOne({
-      client: req.user._id,
-      specialist: specialistId,
+    console.log("\n[DEBUG] Received specialist status update request:", {
+      params: req.params,
+      body: req.body,
+      user: req.user._id,
+      timestamp: new Date(),
     });
-    if (!relationship) {
-      return res.status(404).json({ message: 'Relationship not found' });
+
+    const { isDone } = req.body;
+    const { specialistId } = req.params;
+
+    // Validate and clean the specialistId
+    const cleanedSpecialistId = specialistId.trim();
+    console.log("[DEBUG] Cleaned specialistId:", cleanedSpecialistId);
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(cleanedSpecialistId)) {
+      console.error("[ERROR] Invalid specialistId format:", cleanedSpecialistId);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid specialist ID format",
+        receivedId: cleanedSpecialistId,
+        expectedFormat: "24-character hex string",
+        example: "507f1f77bcf86cd799439011",
+      });
     }
-    relationship.isDone = isDone;
-    await relationship.save();
-    res.json({ message: 'Specialist status updated' });
+
+    // Find the existing relationship
+    const existingRelationship = await ManagedRelationship.findOne({
+      specialist: cleanedSpecialistId,
+      client: req.user._id
+    });
+
+    if (!existingRelationship) {
+      console.error("[ERROR] Relationship not found for specialist:", cleanedSpecialistId);
+      return res.status(404).json({
+        success: false,
+        message: "Relationship not found",
+      });
+    }
+
+    // Check if the authenticated user is the client in this relationship
+    if (existingRelationship.client.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: You do not own this relationship",
+      });
+    }
+
+    // Perform the update
+    const updatedRelationship = await ManagedRelationship.findOneAndUpdate(
+      { _id: existingRelationship._id, client: req.user._id },
+      { isDone },
+      { new: true, runValidators: true }
+    ).populate("specialist", "fullname governorate district specialty isAvailable");
+
+    if (!updatedRelationship) {
+      console.error("[ERROR] Update failed for relationship with specialist:", cleanedSpecialistId);
+      return res.status(404).json({
+        success: false,
+        message: "Relationship not found or not authorized",
+      });
+    }
+
+    console.log("[DEBUG] Successfully updated relationship:", updatedRelationship._id);
+
+    res.json({
+      success: true,
+      specialist: {
+        _id: updatedRelationship.specialist._id,
+        fullname: updatedRelationship.specialist.fullname,
+        governorate: updatedRelationship.specialist.governorate,
+        district: updatedRelationship.specialist.district,
+        specialty: updatedRelationship.specialist.specialty,
+        isAvailable: updatedRelationship.specialist.isAvailable,
+        isDone: updatedRelationship.isDone,
+        dateAdded: updatedRelationship.dateAdded,
+        relationshipId: updatedRelationship._id,
+      },
+    });
   } catch (error) {
-    res.status(400).json({ message: 'Failed to update specialist status' });
+    console.error("[ERROR] Specialist status update failed:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      code: error.code,
+    });
+
+    if (error.name === "MongoServerError") {
+      console.error("[ERROR] MongoDB Details:", {
+        code: error.code,
+        keyPattern: error.keyPattern,
+        keyValue: error.keyValue,
+      });
+    } else if (error.name === "CastError") {
+      console.error("[ERROR] Cast Error Details:", error);
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update specialist status",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
