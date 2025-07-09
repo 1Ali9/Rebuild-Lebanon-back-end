@@ -124,7 +124,7 @@ const sendMessage = async (req, res) => {
       recipient: recipientId,
       message,
     });
-    conversation.messages.push(newMessage._id);
+    
     await newMessage.save();
     await conversation.save();
     await newMessage.populate("sender", "fullname");
