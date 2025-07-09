@@ -28,11 +28,18 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use('/', express.static(path.join(__dirname, 'public')));
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 // Routes
 app.use('/', require('./routes/root'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+const messagesRouter = require('./routes/messages');
+console.log('Messages router loaded:', messagesRouter);
+app.use('/api/messages', messagesRouter);
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/managed', require('./routes/managed'));
 
