@@ -553,13 +553,14 @@ const updateClientStatus = async (req, res) => {
 const removeSpecialist = async (req, res) => {
   try {
     const { specialistId } = req.params;
+    console.log(req.params);
     const relationship = await ManagedRelationship.findOneAndDelete({
-      client: req.user._id,
       specialist: specialistId,
     });
     if (!relationship) {
       return res.status(404).json({ message: "Relationship not found" });
     }
+    console.log("Specialist ", specialistId, " removed");
     res.json({ message: "Specialist removed" });
   } catch (error) {
     res.status(400).json({ message: "Failed to remove specialist" });
