@@ -15,8 +15,10 @@ router.options('/availability', (req, res) => {
 // Regular routes
 router.get("/", userControllers.getUsers);
 router.post("/", userControllers.createUser);
+
 router.get('/specialists', authMiddleware, userControllers.getSpecialists);
 router.get('/clients', authMiddleware, userControllers.getClients);
+router.get('/id/:id', authMiddleware,userControllers.getUserById);
 router.patch('/needed-specialists', 
   authMiddleware,
   (req, res, next) => {
