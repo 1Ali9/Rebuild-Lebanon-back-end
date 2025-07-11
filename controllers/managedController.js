@@ -251,9 +251,9 @@ const getManagedSpecialists = async (req, res) => {
       isAvailable: rel.specialist.isAvailable,
       isDone: rel.isDone,
       dateAdded: rel.dateAdded,
+      relationshipId: rel._id, // Add relationship ID
     }));
 
-    // Return standardized response
     res.json({
       success: true,
       data: {
@@ -300,122 +300,45 @@ const getManagedClients = async (req, res) => {
 
 const updateSpecialistStatus = async (req, res) => {
   try {
-    console.log("\n[DEBUG] Received specialist status update request:", {
-      params: req.params,
-      body: req.body,
-      user: req.user._id,
-      timestamp: new Date(),
-    });
+    const { relationshipId } = req.params;
+    const { isDone, specialistId } = req.body; // Now expecting specialistId too
 
-    const { isDone } = req.body;
-    const { specialistId } = req.params;
-
-    // Validate and clean the specialistId
-    const cleanedSpecialistId = specialistId.trim();
-    console.log("[DEBUG] Cleaned specialistId:", cleanedSpecialistId);
-
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(cleanedSpecialistId)) {
-      console.error(
-        "[ERROR] Invalid specialistId format:",
-        cleanedSpecialistId
-      );
+    // Validate inputs
+    if (typeof isDone !== 'boolean' || !specialistId) {
       return res.status(400).json({
         success: false,
-        message: "Invalid specialist ID format",
-        receivedId: cleanedSpecialistId,
-        expectedFormat: "24-character hex string",
-        example: "507f1f77bcf86cd799439011",
+        message: "Invalid request data"
       });
     }
 
-    // Find the existing relationship
-    const existingRelationship = await ManagedRelationship.findOne({
-      specialist: cleanedSpecialistId,
+    // Find and validate the full relationship
+    const relationship = await ManagedRelationship.findOne({
+      _id: relationshipId,
       client: req.user._id,
+      specialist: specialistId // Verify the specialist is in this relationship
     });
 
-    if (!existingRelationship) {
-      console.error(
-        "[ERROR] Relationship not found for specialist:",
-        cleanedSpecialistId
-      );
+    if (!relationship) {
       return res.status(404).json({
         success: false,
-        message: "Relationship not found",
+        message: "Relationship not found or unauthorized"
       });
     }
 
-    // Check if the authenticated user is the client in this relationship
-    if (existingRelationship.client.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized: You do not own this relationship",
-      });
-    }
-
-    // Perform the update
-    const updatedRelationship = await ManagedRelationship.findOneAndUpdate(
-      { _id: existingRelationship._id, client: req.user._id },
-      { isDone },
-      { new: true, runValidators: true }
-    ).populate(
-      "specialist",
-      "fullname governorate district specialty isAvailable"
-    );
-
-    if (!updatedRelationship) {
-      console.error(
-        "[ERROR] Update failed for relationship with specialist:",
-        cleanedSpecialistId
-      );
-      return res.status(404).json({
-        success: false,
-        message: "Relationship not found or not authorized",
-      });
-    }
-
-    console.log(
-      "[DEBUG] Successfully updated relationship:",
-      updatedRelationship._id
-    );
+    // Update the status
+    relationship.isDone = isDone;
+    await relationship.save();
 
     res.json({
       success: true,
-      specialist: {
-        _id: updatedRelationship.specialist._id,
-        fullname: updatedRelationship.specialist.fullname,
-        governorate: updatedRelationship.specialist.governorate,
-        district: updatedRelationship.specialist.district,
-        specialty: updatedRelationship.specialist.specialty,
-        isAvailable: updatedRelationship.specialist.isAvailable,
-        isDone: updatedRelationship.isDone,
-        dateAdded: updatedRelationship.dateAdded,
-        relationshipId: updatedRelationship._id,
-      },
+      isDone: relationship.isDone
     });
+
   } catch (error) {
-    console.error("[ERROR] Specialist status update failed:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-      code: error.code,
-    });
-
-    if (error.name === "MongoServerError") {
-      console.error("[ERROR] MongoDB Details:", {
-        code: error.code,
-        keyPattern: error.keyPattern,
-        keyValue: error.keyValue,
-      });
-    } else if (error.name === "CastError") {
-      console.error("[ERROR] Cast Error Details:", error);
-    }
-
+    console.error("Update error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to update specialist status",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: "Update failed"
     });
   }
 };
@@ -423,150 +346,176 @@ const updateSpecialistStatus = async (req, res) => {
 // managedController.js
 const updateClientStatus = async (req, res) => {
   try {
-    console.log("\n[DEBUG] Received status update request:", {
-      params: req.params,
-      body: req.body,
-      user: req.user._id,
-      timestamp: new Date(),
+    const { relationshipId } = req.params;
+    const { isDone, clientId } = req.body; // Now expecting clientId
+
+    // Validate inputs
+    if (typeof isDone !== 'boolean' || !clientId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request data"
+      });
+    }
+
+    // Find and validate the full relationship
+    const relationship = await ManagedRelationship.findOne({
+      _id: relationshipId,
+      specialist: req.user._id, // Specialist owns this relationship
+      client: clientId // Verify the client is in this relationship
     });
 
-    const { isDone } = req.body;
-    const { relationshipId } = req.params;
+    if (!relationship) {
+      return res.status(404).json({
+        success: false,
+        message: "Relationship not found or unauthorized"
+      });
+    }
 
-    // Log the raw relationshipId as received
-    console.log("[DEBUG] Raw relationshipId from params:", relationshipId);
+    // Update the status
+    relationship.isDone = isDone;
+    await relationship.save();
 
-    // Validate and clean the relationshipId
-    const cleanedRelationshipId = relationshipId.trim();
-    console.log("[DEBUG] Cleaned relationshipId:", cleanedRelationshipId);
+    res.json({
+      success: true,
+      isDone: relationship.isDone
+    });
 
-    // Validate ObjectId format with explicit check
-    if (!mongoose.Types.ObjectId.isValid(cleanedRelationshipId)) {
-      console.error(
-        "[ERROR] Invalid relationshipId format:",
-        cleanedRelationshipId
-      );
+  } catch (error) {
+    console.error("Update error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Update failed"
+    });
+  }
+};
+
+const removeSpecialist = async (req, res) => {
+  // 1. Enhanced request logging
+  console.log("\n[DELETE SPECIALIST] Request received:", {
+    timestamp: new Date().toISOString(),
+    params: req.params,
+    user: req.user._id,
+    headers: req.headers,
+    body: req.body
+  });
+
+  try {
+    const { id } = req.params; // Now using 'id' to match route parameter
+    
+    // 2. Validate ID exists
+    if (!id) {
+      console.error("[VALIDATION] Missing ID parameter");
+      return res.status(400).json({
+        success: false,
+        message: "Relationship ID parameter is required",
+      });
+    }
+
+    // 3. Clean and validate ID format
+    const cleanedId = id.toString().trim();
+    console.log("[DEBUG] Processing relationship ID:", cleanedId);
+
+    if (!mongoose.Types.ObjectId.isValid(cleanedId)) {
+      console.error("[VALIDATION] Invalid ID format:", cleanedId);
       return res.status(400).json({
         success: false,
         message: "Invalid relationship ID format",
-        receivedId: cleanedRelationshipId,
+        receivedId: cleanedId,
         expectedFormat: "24-character hex string",
         example: "507f1f77bcf86cd799439011",
       });
     }
 
-    console.log("[DEBUG] Validated relationshipId:", cleanedRelationshipId);
+    // 4. Find relationship with existence check
+    const relationship = await ManagedRelationship.findOne({
+      _id: cleanedId,
+      client: req.user._id, // Ensures client owns this relationship
+    });
 
-    // Find the existing relationship to debug
-    const existingRelationship = await ManagedRelationship.findOne({
-      _id: cleanedRelationshipId,
-    }).select("specialist");
-
-    if (!existingRelationship) {
-      console.error(
-        "[ERROR] Relationship not found for ID:",
-        cleanedRelationshipId
-      );
-      return res.status(404).json({
-        success: false,
-        message: "Relationship not found",
+    if (!relationship) {
+      console.error("[NOT FOUND] Relationship not found or not authorized:", {
+        relationshipId: cleanedId,
+        clientId: req.user._id,
       });
-    }
-
-    console.log(
-      "[DEBUG] Existing relationship specialist:",
-      existingRelationship.specialist
-    );
-    console.log("[DEBUG] Authenticated user ID:", req.user._id);
-
-    // Check if the authenticated user is the specialist
-    if (
-      existingRelationship.specialist.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized: You do not own this relationship",
-      });
-    }
-
-    // Perform the update
-    const updatedRelationship = await ManagedRelationship.findOneAndUpdate(
-      { _id: cleanedRelationshipId, specialist: req.user._id },
-      { isDone },
-      { new: true, runValidators: true }
-    ).populate("client", "fullname governorate district neededSpecialists");
-
-    if (!updatedRelationship) {
-      console.error(
-        "[ERROR] Update failed for relationship:",
-        cleanedRelationshipId
-      );
       return res.status(404).json({
         success: false,
         message: "Relationship not found or not authorized",
+        relationshipId: cleanedId,
       });
     }
 
-    console.log(
-      "[DEBUG] Successfully updated relationship:",
-      updatedRelationship._id
-    );
-
-    res.json({
-      success: true,
-      client: {
-        _id: updatedRelationship.client._id,
-        fullname: updatedRelationship.client.fullname,
-        governorate: updatedRelationship.client.governorate,
-        district: updatedRelationship.client.district,
-        neededSpecialists: updatedRelationship.client.neededSpecialists,
-        isDone: updatedRelationship.isDone,
-        dateAdded: updatedRelationship.dateAdded,
-        relationshipId: updatedRelationship._id,
-      },
+    // 5. Debug logging before deletion
+    console.log("[DEBUG] Found relationship to delete:", {
+      _id: relationship._id,
+      client: relationship.client,
+      specialist: relationship.specialist,
+      createdAt: relationship.createdAt,
     });
+
+    // 6. Perform deletion
+    const deletionResult = await ManagedRelationship.deleteOne({
+      _id: cleanedId,
+      client: req.user._id, // Double-check ownership
+    });
+
+    // 7. Verify deletion
+    if (deletionResult.deletedCount === 0) {
+      console.error("[DELETE FAILED] No documents deleted:", deletionResult);
+      return res.status(500).json({
+        success: false,
+        message: "No relationship was deleted",
+        deletionResult,
+      });
+    }
+
+    // 8. Success response
+    console.log("[SUCCESS] Relationship deleted:", deletionResult);
+    return res.json({
+      success: true,
+      message: "Specialist successfully removed from managed list",
+      deletedCount: deletionResult.deletedCount,
+      relationshipId: cleanedId,
+    });
+
   } catch (error) {
-    console.error("[ERROR] Status update failed:", {
-      message: error.message,
+    // 9. Enhanced error handling
+    console.error("\n[ERROR] Specialist removal failed:", {
       name: error.name,
+      message: error.message,
       stack: error.stack,
       code: error.code,
+      params: req.params,
+      user: req.user?._id,
     });
 
+    // Handle specific MongoDB errors
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid ID format",
+        error: error.message,
+      });
+    }
+
     if (error.name === "MongoServerError") {
-      console.error("[ERROR] MongoDB Details:", {
+      console.error("MongoDB Error Details:", {
         code: error.code,
         keyPattern: error.keyPattern,
         keyValue: error.keyValue,
       });
-    } else if (error.name === "CastError") {
-      console.error("[ERROR] Cast Error Details:", error);
     }
 
-    res.status(500).json({
+    // Generic error response
+    return res.status(500).json({
       success: false,
-      message: "Failed to update client status",
+      message: "Failed to remove specialist",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
+  } finally {
+    console.log("[DELETE SPECIALIST] Request completed at:", new Date().toISOString());
   }
 };
-const removeSpecialist = async (req, res) => {
-  try {
-    const { specialistId } = req.params;
-    console.log(req.params);
-    const relationship = await ManagedRelationship.findOneAndDelete({
-      specialist: specialistId,
-      client: req.user._id
-    });
-    if (!relationship) {
-      return res.status(404).json({ message: "Relationship not found" });
-    }
-    console.log("Specialist ", specialistId, " removed for client ", req.user._id);
-    res.json({ message: "Specialist removed" });
-  } catch (error) {
-    res.status(400).json({ message: "Failed to remove specialist" });
-  }
-};
+
 
 const removeClient = async (req, res) => {
   if (!req.params.id || typeof req.params.id !== "string") {

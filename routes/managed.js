@@ -12,11 +12,19 @@ router.use((req, res, next) => {
 
 router.post('/clients', authMiddleware, managedController.addClient);
 router.delete('/clients/:id', authMiddleware, managedController.removeClient);
-router.patch('/relationships/:relationshipId/status', authMiddleware, managedController.updateClientStatus);
+router.patch(
+  '/relationships/client/:relationshipId/status', 
+  authMiddleware, 
+  managedController.updateClientStatus
+);
 router.get('/clients', authMiddleware, managedController.getManagedClients);
 router.post('/specialists', authMiddleware, managedController.addSpecialist);
-router.delete('/specialists/:specialistId', authMiddleware, managedController.removeSpecialist);
-router.put('/specialists/:specialistId/status', authMiddleware, managedController.updateSpecialistStatus);
+router.delete('/specialists/:id', authMiddleware, managedController.removeSpecialist);
+router.patch(
+  '/relationships/specialist/:relationshipId/status', 
+  authMiddleware, 
+  managedController.updateSpecialistStatus
+);
 router.get('/specialists', authMiddleware, managedController.getManagedSpecialists);
 
 module.exports = router;
