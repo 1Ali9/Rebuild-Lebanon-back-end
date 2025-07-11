@@ -1,7 +1,7 @@
 const Conversation = require("../models/conversation");
 const Message = require("../models/message");
 const User = require("../models/user");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const getConversations = async (req, res) => {
   try {
@@ -27,7 +27,7 @@ const getMessages = async (req, res) => {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    const updateUnreadMessages = await Message.updateMany(
+    await Message.updateMany(
       {
         isRead: false,
         recipient: req.user._id,
@@ -48,23 +48,18 @@ const getMessages = async (req, res) => {
 const createConversation = async (req, res) => {
   try {
     const { participantId } = req.body;
-    const currentUserId = req.user._id;
-    
-    // Add validation checks
+    const currentUserId = req.user._id; // Get from authenticated user
+
+    // Validate inputs
     if (!participantId) {
       return res.status(400).json({ message: "Participant ID is required" });
     }
 
-    if (!currentUserId) {
-      return res.status(401).json({ message: "User not authenticated" });
-    }
-
-    // Convert to string for safe comparison
-    const currentUserIdStr = currentUserId.toString();
-    const participantIdStr = participantId.toString();
-
-    if (participantIdStr === currentUserIdStr) {
-      return res.status(400).json({ message: "Cannot create conversation with yourself" });
+    // Check if trying to message self
+    if (participantId === currentUserId.toString()) {
+      return res
+        .status(400)
+        .json({ message: "Cannot create conversation with yourself" });
     }
 
     // Check if participant exists
@@ -75,13 +70,13 @@ const createConversation = async (req, res) => {
 
     // Check for existing conversation
     const existingConversation = await Conversation.findOne({
-      participants: { $all: [currentUserId, participantIdStr] }
+      participants: { $all: [currentUserId, participantId] },
     });
 
     if (existingConversation) {
-      return res.json({ 
+      return res.json({
         conversationId: existingConversation._id,
-        messages: []
+        messages: [],
       });
     }
 
@@ -89,23 +84,24 @@ const createConversation = async (req, res) => {
     const conversation = new Conversation({
       participants: [currentUserId, participantIdStr],
       participantUnread: new Map([
-        [currentUserIdStr, 0],
-        [participantIdStr, 0]
-      ])
+        [currentUserId.toString(), 0],
+        [participantId.toString(), 0],
+      ]),
     });
 
     await conversation.save();
-    await conversation.populate('participants', 'fullname role');
-    
-    res.status(201).json({ 
-      conversationId: conversation._id,
-      messages: []
-    });
 
+    // Populate participant data
+    await conversation.populate("participants", "fullname role");
+
+    res.status(201).json({
+      conversationId: conversation._id,
+      messages: [],
+    });
   } catch (error) {
-    console.error('Error creating conversation:', error);
-    res.status(500).json({ 
-      message: error.message || "Failed to create conversation"
+    console.error("Error creating conversation:", error);
+    res.status(400).json({
+      message: error.message || "Failed to create conversation",
     });
   }
 };
@@ -129,7 +125,7 @@ const sendMessage = async (req, res) => {
       recipient: recipientId,
       message,
     });
-    
+
     await newMessage.save();
     await conversation.save();
     await newMessage.populate("sender", "fullname");
@@ -158,5 +154,5 @@ module.exports = {
   getMessages,
   createConversation,
   sendMessage,
-  markAsRead 
+  markAsRead,
 };
