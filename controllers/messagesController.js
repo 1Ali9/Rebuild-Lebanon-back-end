@@ -45,64 +45,42 @@ const getMessages = async (req, res) => {
   }
 };
 
+// In your messagesController.js
 const createConversation = async (req, res) => {
   try {
     const { participantId } = req.body;
-    const currentUserId = req.user._id; // Get from authenticated user
+    const currentUserId = req.user._id; // From auth middleware
 
-    // Validate inputs
-    if (!participantId) {
-      return res.status(400).json({ message: "Participant ID is required" });
-    }
-
-    // Check if trying to message self
-    if (participantId === currentUserId.toString()) {
-      return res
-        .status(400)
-        .json({ message: "Cannot create conversation with yourself" });
-    }
-
-    // Check if participant exists
-    const participant = await User.findById(participantIdStr);
-    if (!participant) {
-      return res.status(404).json({ message: "Participant not found" });
+    // Validate both IDs
+    if (!participantId || !currentUserId) {
+      return res.status(400).json({ message: "Missing participant IDs" });
     }
 
     // Check for existing conversation
-    const existingConversation = await Conversation.findOne({
-      participants: { $all: [currentUserId, participantId] },
+    const existingConv = await Conversation.findOne({
+      participants: { $all: [currentUserId, participantId] }
     });
 
-    if (existingConversation) {
+    if (existingConv) {
       return res.json({
-        conversationId: existingConversation._id,
-        messages: [],
+        conversationId: existingConv._id,
+        messages: []
       });
     }
 
     // Create new conversation
     const conversation = new Conversation({
-      participants: [currentUserId, participantIdStr],
-      participantUnread: new Map([
-        [currentUserId.toString(), 0],
-        [participantId.toString(), 0],
-      ]),
+      participants: [currentUserId, participantId],
+      // ... other fields
     });
 
     await conversation.save();
-
-    // Populate participant data
-    await conversation.populate("participants", "fullname role");
-
     res.status(201).json({
       conversationId: conversation._id,
-      messages: [],
+      messages: []
     });
   } catch (error) {
-    console.error("Error creating conversation:", error);
-    res.status(400).json({
-      message: error.message || "Failed to create conversation",
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -124,6 +102,7 @@ const sendMessage = async (req, res) => {
       sender: req.user._id,
       recipient: recipientId,
       message,
+      
     });
 
     await newMessage.save();
