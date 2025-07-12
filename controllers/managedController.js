@@ -10,7 +10,7 @@ const addSpecialist = async (req, res) => {
     });
 
     const { specialistId } = req.body;
-
+    console.log("specialist id received: ", specialistId);
     // Validate input
     if (!specialistId) {
       return res.status(400).json({
@@ -304,10 +304,10 @@ const updateSpecialistStatus = async (req, res) => {
     const { isDone, specialistId } = req.body; // Now expecting specialistId too
 
     // Validate inputs
-    if (typeof isDone !== 'boolean' || !specialistId) {
+    if (typeof isDone !== "boolean" || !specialistId) {
       return res.status(400).json({
         success: false,
-        message: "Invalid request data"
+        message: "Invalid request data",
       });
     }
 
@@ -315,13 +315,13 @@ const updateSpecialistStatus = async (req, res) => {
     const relationship = await ManagedRelationship.findOne({
       _id: relationshipId,
       client: req.user._id,
-      specialist: specialistId // Verify the specialist is in this relationship
+      specialist: specialistId, // Verify the specialist is in this relationship
     });
 
     if (!relationship) {
       return res.status(404).json({
         success: false,
-        message: "Relationship not found or unauthorized"
+        message: "Relationship not found or unauthorized",
       });
     }
 
@@ -331,14 +331,13 @@ const updateSpecialistStatus = async (req, res) => {
 
     res.json({
       success: true,
-      isDone: relationship.isDone
+      isDone: relationship.isDone,
     });
-
   } catch (error) {
     console.error("Update error:", error);
     res.status(500).json({
       success: false,
-      message: "Update failed"
+      message: "Update failed",
     });
   }
 };
@@ -350,10 +349,10 @@ const updateClientStatus = async (req, res) => {
     const { isDone, clientId } = req.body; // Now expecting clientId
 
     // Validate inputs
-    if (typeof isDone !== 'boolean' || !clientId) {
+    if (typeof isDone !== "boolean" || !clientId) {
       return res.status(400).json({
         success: false,
-        message: "Invalid request data"
+        message: "Invalid request data",
       });
     }
 
@@ -361,13 +360,13 @@ const updateClientStatus = async (req, res) => {
     const relationship = await ManagedRelationship.findOne({
       _id: relationshipId,
       specialist: req.user._id, // Specialist owns this relationship
-      client: clientId // Verify the client is in this relationship
+      client: clientId, // Verify the client is in this relationship
     });
 
     if (!relationship) {
       return res.status(404).json({
         success: false,
-        message: "Relationship not found or unauthorized"
+        message: "Relationship not found or unauthorized",
       });
     }
 
@@ -377,14 +376,13 @@ const updateClientStatus = async (req, res) => {
 
     res.json({
       success: true,
-      isDone: relationship.isDone
+      isDone: relationship.isDone,
     });
-
   } catch (error) {
     console.error("Update error:", error);
     res.status(500).json({
       success: false,
-      message: "Update failed"
+      message: "Update failed",
     });
   }
 };
@@ -396,12 +394,12 @@ const removeSpecialist = async (req, res) => {
     params: req.params,
     user: req.user._id,
     headers: req.headers,
-    body: req.body
+    body: req.body,
   });
 
   try {
     const { id } = req.params; // Now using 'id' to match route parameter
-    
+
     // 2. Validate ID exists
     if (!id) {
       console.error("[VALIDATION] Missing ID parameter");
@@ -476,7 +474,6 @@ const removeSpecialist = async (req, res) => {
       deletedCount: deletionResult.deletedCount,
       relationshipId: cleanedId,
     });
-
   } catch (error) {
     // 9. Enhanced error handling
     console.error("\n[ERROR] Specialist removal failed:", {
@@ -512,10 +509,12 @@ const removeSpecialist = async (req, res) => {
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   } finally {
-    console.log("[DELETE SPECIALIST] Request completed at:", new Date().toISOString());
+    console.log(
+      "[DELETE SPECIALIST] Request completed at:",
+      new Date().toISOString()
+    );
   }
 };
-
 
 const removeClient = async (req, res) => {
   if (!req.params.id || typeof req.params.id !== "string") {

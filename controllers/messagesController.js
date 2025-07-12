@@ -58,13 +58,13 @@ const createConversation = async (req, res) => {
 
     // Check for existing conversation
     const existingConv = await Conversation.findOne({
-      participants: { $all: [currentUserId, participantId] }
+      participants: { $all: [currentUserId, participantId] },
     });
 
     if (existingConv) {
       return res.json({
         conversationId: existingConv._id,
-        messages: []
+        messages: [],
       });
     }
 
@@ -77,7 +77,7 @@ const createConversation = async (req, res) => {
     await conversation.save();
     res.status(201).json({
       conversationId: conversation._id,
-      messages: []
+      messages: [],
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -86,32 +86,45 @@ const createConversation = async (req, res) => {
 
 const sendMessage = async (req, res) => {
   try {
-    const { conversationId, message } = req.body;
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: req.user._id,
+    const { conversationId, message, recipientId } = req.body;
+
+    // Sort participants consistently to match the unique index
+    const participants = [req.user._id.toString(), recipientId].sort();
+
+    // Check if conversation between these two users exists
+    let conversation = await Conversation.findOne({
+      participants: participants,
     });
+
+    // Create if not exists
     if (!conversation) {
-      return res.status(404).json({ message: "Conversation not found" });
+      conversation = new Conversation({
+        participants: participants,
+      });
+      await conversation.save();
     }
-    const recipientId = conversation.participants.find(
-      (p) => !p.equals(req.user._id)
-    );
+
+    // Save message
     const newMessage = new Message({
-      conversationId,
+      conversationId: conversation._id,
       sender: req.user._id,
       recipient: recipientId,
       message,
-      
     });
 
     await newMessage.save();
-    await conversation.save();
     await newMessage.populate("sender", "fullname");
     await newMessage.populate("recipient", "fullname");
-    res.status(201).json({ message: newMessage });
+
+    res.status(201).json({
+      message: newMessage,
+      conversationId: conversation._id,
+    });
   } catch (error) {
-    res.status(400).json({ message: "Failed to send message" });
+    console.error(error);
+    res
+      .status(400)
+      .json({ message: "Failed to send message", error: error.message });
   }
 };
 const markAsRead = async (req, res) => {
@@ -141,13 +154,12 @@ const markConversationAsRead = async (req, res) => {
 
     // Use the existing instance method
     await conversation.markAsRead(userId);
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: "Failed to mark conversation as read" });
   }
 };
-
 
 module.exports = {
   getConversations,
@@ -155,5 +167,5 @@ module.exports = {
   createConversation,
   sendMessage,
   markAsRead,
-  markConversationAsRead
+  markConversationAsRead,
 };
