@@ -128,10 +128,32 @@ const markAsRead = async (req, res) => {
     res.status(500).json({ message: "Failed to mark message as read" });
   }
 };
+const markConversationAsRead = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { userId } = req.body;
+
+    // Find the conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Use the existing instance method
+    await conversation.markAsRead(userId);
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to mark conversation as read" });
+  }
+};
+
+
 module.exports = {
   getConversations,
   getMessages,
   createConversation,
   sendMessage,
   markAsRead,
+  markConversationAsRead
 };
