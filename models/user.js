@@ -18,6 +18,20 @@ const specialties = [
   'HVAC Technician',
 ];
 
+
+
+// Mapping of governorates to their valid districts
+const districtByGovernorate = {
+  'Beirut': ['Beirut'],
+  'Mount Lebanon': ['Baabda', 'Aley', 'Chouf', 'Keserwan', 'Metn', 'Jbeil'],
+  'North': ['Tripoli', 'Akkar', 'Bcharre', 'Koura', 'Miniyeh-Danniyeh', 'Zgharta', 'Batroun'],
+  'Akkar': ['Akkar'],
+  'Beqaa': ['Zahle', 'West Beqaa', 'Rashaya'],
+  'Baalbek-Hermel': ['Baalbek', 'Hermel'],
+  'South': ['Saida', 'Tyre', 'Jezzine'],
+  'Nabatieh': ['Nabatieh', 'Marjeyoun', 'Hasbaya', 'Bint Jbeil']
+};
+
 // Subdocument schema for client's needed specialists
 const neededSpecialistSchema = new mongoose.Schema({
   name: {
@@ -31,18 +45,6 @@ const neededSpecialistSchema = new mongoose.Schema({
     default: true
   }
 });
-
-// Mapping of governorates to their valid districts
-const districtByGovernorate = {
-  'Beirut': ['Beirut'],
-  'Mount Lebanon': ['Baabda', 'Aley', 'Chouf', 'Keserwan', 'Metn', 'Jbeil'],
-  'North': ['Tripoli', 'Akkar', 'Bcharre', 'Koura', 'Miniyeh-Danniyeh', 'Zgharta', 'Batroun'],
-  'Akkar': ['Akkar'],
-  'Beqaa': ['Zahle', 'West Beqaa', 'Rashaya'],
-  'Baalbek-Hermel': ['Baalbek', 'Hermel'],
-  'South': ['Saida', 'Tyre', 'Jezzine'],
-  'Nabatieh': ['Nabatieh', 'Marjeyoun', 'Hasbaya', 'Bint Jbeil']
-};
 
 const userSchema = new mongoose.Schema({
   fullname: {
